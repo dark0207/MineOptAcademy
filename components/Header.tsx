@@ -28,9 +28,7 @@ export async function Header() {
       <div className="container">
         <Link href="/" className="brand" aria-label={`${SITE_NAME} home`}>
           <BrandMark />
-          <span>
-            MineOpt <small>Academy</small>
-          </span>
+          <span>MineOpt</span>
         </Link>
 
         <NavLinks items={items} />
