@@ -2,20 +2,24 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import { Icon } from "../Icon";
 
 type Props = {
   tutorialId: string;
   kind: "video" | "thumbnail";
-  /** stored file name, or null when nothing is uploaded */
+  /** stored file name or remote Blob URL */
   current: string | null;
   accept: string;
   maxMb: number;
 };
 
+const useBlobUpload = process.env.NEXT_PUBLIC_BLOB_UPLOAD === "true";
+
 /**
- * Uploads a video or thumbnail straight to the server as a raw request body, with a progress bar.
- * The page refreshes afterwards so the stored file shows up.
+ * Uploads a video or thumbnail with a progress bar.
+ * On Vercel, files go straight to Blob (bypassing the serverless body limit).
+ * Self-hosted deploys still stream to the local STORAGE_DIR via PUT.
  */
 export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Props) {
   const router = useRouter();
@@ -28,13 +32,46 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
   const endpoint = `/api/admin/tutorials/${tutorialId}/media`;
   const noun = kind === "video" ? "video" : "thumbnail";
 
-  function upload(file: File) {
-    setError(null);
-    if (file.size > maxMb * 1024 * 1024) {
-      setError(`That file is ${(file.size / 1024 / 1024).toFixed(0)} MB; the limit is ${maxMb} MB.`);
-      return;
-    }
+  function fail(message: string) {
+    setProgress(null);
+    setError(message);
+  }
 
+  async function uploadWithBlob(file: File) {
+    setProgress(0);
+    try {
+      const blob = await upload(`academy/${kind}/${file.name}`, file, {
+        access: "public",
+        handleUploadUrl: `${endpoint}/upload`,
+        clientPayload: JSON.stringify({ kind }),
+        multipart: file.size > 80 * 1024 * 1024,
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+      });
+
+      const response = await fetch(`${endpoint}?kind=${kind}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: blob.url }),
+      });
+      if (!response.ok) {
+        let message = "The upload failed.";
+        try {
+          message = (await response.json()).error ?? message;
+        } catch {
+          // keep generic message
+        }
+        fail(message);
+        return;
+      }
+
+      setProgress(null);
+      router.refresh();
+    } catch (err) {
+      fail(err instanceof Error ? err.message : "The upload failed. Try again.");
+    }
+  }
+
+  function uploadLocal(file: File) {
     const xhr = new XMLHttpRequest();
     request.current = xhr;
     xhr.open("PUT", `${endpoint}?kind=${kind}&name=${encodeURIComponent(file.name)}`);
@@ -59,8 +96,7 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
     };
     xhr.onerror = () => {
       request.current = null;
-      setProgress(null);
-      setError("The upload failed. Check your connection and try again.");
+      fail("The upload failed. Check your connection and try again.");
     };
     xhr.onabort = () => {
       request.current = null;
@@ -69,6 +105,16 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
 
     setProgress(0);
     xhr.send(file);
+  }
+
+  function startUpload(file: File) {
+    setError(null);
+    if (file.size > maxMb * 1024 * 1024) {
+      setError(`That file is ${(file.size / 1024 / 1024).toFixed(0)} MB; the limit is ${maxMb} MB.`);
+      return;
+    }
+    if (useBlobUpload) void uploadWithBlob(file);
+    else uploadLocal(file);
   }
 
   async function remove() {
@@ -80,6 +126,11 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
   }
 
   const uploading = progress !== null;
+  const label = current?.startsWith("http")
+    ? "Cloud file"
+    : current
+      ? `${current.slice(0, 8)}…${current.slice(current.lastIndexOf("."))}`
+      : null;
 
   return (
     <div>
@@ -87,14 +138,14 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
         <div className="stack" style={{ marginBottom: 14 }}>
           {kind === "thumbnail" && (
             // eslint-disable-next-line @next/next/no-img-element -- served by our own route
-            <img className="thumb-preview" src={`/api/media/thumbnail/${tutorialId}?v=${current}`} alt="Current thumbnail" />
+            <img className="thumb-preview" src={`/api/media/thumbnail/${tutorialId}?v=${encodeURIComponent(current)}`} alt="Current thumbnail" />
           )}
           <div className="file-row">
             <Icon name={kind === "video" ? "film" : "image"} size={20} />
             <div className="grow">
               <div className="name">{kind === "video" ? "Video uploaded" : "Thumbnail set"}</div>
               <div className="faint" style={{ fontSize: 12 }}>
-                {current.slice(0, 8)}…{current.slice(current.lastIndexOf("."))}
+                {label}
               </div>
             </div>
             <button type="button" className="btn btn-sm btn-danger" onClick={remove} disabled={uploading}>
@@ -115,7 +166,7 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
           e.preventDefault();
           setOver(false);
           const file = e.dataTransfer.files[0];
-          if (file && !uploading) upload(file);
+          if (file && !uploading) startUpload(file);
         }}
       >
         <Icon name="upload" size={26} />
@@ -130,7 +181,7 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
           disabled={uploading}
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) upload(file);
+            if (file) startUpload(file);
             e.target.value = "";
           }}
         />
@@ -140,9 +191,11 @@ export function MediaUploader({ tutorialId, kind, current, accept, maxMb }: Prop
         <div className="upload-progress" aria-live="polite">
           <div className="row between" style={{ marginBottom: 6, fontSize: 13 }}>
             <span>Uploading… {progress}%</span>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => request.current?.abort()}>
-              Cancel
-            </button>
+            {!useBlobUpload && (
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => request.current?.abort()}>
+                Cancel
+              </button>
+            )}
           </div>
           <div className="bar">
             <span style={{ width: `${progress}%` }} />

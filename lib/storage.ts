@@ -5,12 +5,22 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { del } from "@vercel/blob";
 import { config } from "./config";
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from "./constants";
 
 export type MediaKind = "video" | "thumbnail";
 
 const FOLDER: Record<MediaKind, string> = { video: "videos", thumbnail: "thumbnails" };
+
+/** Uploaded media stored in Vercel Blob is saved as a full https URL. */
+export function isRemoteMedia(fileName: string | null | undefined): fileName is string {
+  return !!fileName && /^https?:\/\//i.test(fileName);
+}
+
+export function blobEnabled(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+}
 
 const CONTENT_TYPES: Record<string, string> = {
   ".mp4": "video/mp4",
@@ -110,6 +120,10 @@ export async function saveUpload(kind: MediaKind, originalName: string, body: Re
 }
 
 export async function deleteMedia(kind: MediaKind, fileName: string | null | undefined) {
+  if (isRemoteMedia(fileName)) {
+    await del(fileName).catch(() => undefined);
+    return;
+  }
   const target = mediaPath(kind, fileName);
   if (target) {
     await withRetry(() => fsp.rm(target, { force: true })).catch(() => undefined);
@@ -118,6 +132,11 @@ export async function deleteMedia(kind: MediaKind, fileName: string | null | und
 
 /** Serves a stored file with HTTP range support, which browsers need to seek inside videos. */
 export async function serveFile(request: Request, kind: MediaKind, fileName: string | null | undefined, cache: string) {
+  if (isRemoteMedia(fileName)) {
+    // Blob already supports range requests; keep access checks in the route, then redirect.
+    return Response.redirect(fileName, 302);
+  }
+
   const target = mediaPath(kind, fileName);
   if (!target) return new Response("Not found", { status: 404 });
 
