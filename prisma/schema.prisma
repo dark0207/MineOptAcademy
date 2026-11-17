@@ -1,0 +1,85 @@
+// MineOpt Academy data model.
+// SQLite keeps the site a single deployable unit; switch the provider and DATABASE_URL to move to Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  /// "ADMIN" | "USER"
+  role         String     @default("USER")
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  lastLoginAt  DateTime?
+  progress     Progress[]
+}
+
+/// A MineOpt module / area (PitOpt, AutoDesign, SchedOpt, ...) that groups tutorials.
+model Module {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  tagline     String     @default("")
+  description String     @default("")
+  /// key of an icon in components/Icon.tsx
+  icon        String     @default("layers")
+  /// css colour such as #f59e0b
+  accent      String     @default("#f59e0b")
+  sortOrder   Int        @default(0)
+  tutorials   Tutorial[]
+}
+
+/// The tutorial of one feature: description, key steps and a video.
+model Tutorial {
+  id              String     @id @default(cuid())
+  moduleId        String
+  module          Module     @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  slug            String     @unique
+  title           String
+  summary         String     @default("")
+  /// markdown
+  description     String     @default("")
+  /// markdown, normally a numbered list
+  steps           String     @default("")
+  /// "NONE" | "UPLOAD" | "EXTERNAL"
+  videoSource     String     @default("NONE")
+  /// stored file name (never a path) of an uploaded video
+  videoFile       String?
+  /// YouTube / Vimeo page or direct video url
+  videoUrl        String?
+  thumbnailFile   String?
+  durationMinutes Int        @default(0)
+  /// "BEGINNER" | "INTERMEDIATE" | "ADVANCED"
+  level           String     @default("BEGINNER")
+  published       Boolean    @default(false)
+  featured        Boolean    @default(false)
+  sortOrder       Int        @default(0)
+  viewCount       Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  progress        Progress[]
+
+  @@index([moduleId, sortOrder])
+  @@index([published])
+}
+
+/// A user marked a tutorial as completed.
+model Progress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tutorialId  String
+  tutorial    Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now())
+
+  @@unique([userId, tutorialId])
+}
