@@ -111,8 +111,8 @@ main { flex: 1; }
 
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
 .brand-mark {
-  width: 34px; height: 34px; border-radius: 10px;
-  object-fit: cover;
+  width: 34px; height: 34px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
