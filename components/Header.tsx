@@ -9,7 +9,7 @@ import { ThemeToggle } from "./ThemeToggle";
 
 export function BrandMark() {
   return (
-    <img className="brand-mark" src="/mineopt-icon.ico" alt="" width={34} height={34} aria-hidden="true" />
+    <img className="brand-mark" src="/mineopt-icon.png" alt="" width={34} height={34} aria-hidden="true" />
   );
 }
 
