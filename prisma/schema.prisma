@@ -1,12 +1,12 @@
 // MineOpt Academy data model.
-// SQLite keeps the site a single deployable unit; switch the provider and DATABASE_URL to move to Postgres.
+// Postgres (Neon on Vercel). Locally, pull DATABASE_URL with `vercel env pull` or point at any Postgres URL.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

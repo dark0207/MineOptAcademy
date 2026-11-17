@@ -112,10 +112,10 @@ main { flex: 1; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
 .brand-mark {
   width: 34px; height: 34px; border-radius: 10px;
-  display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--accent-strong), #e8590c);
-  color: #1a1204;
-  box-shadow: 0 6px 18px rgba(245, 165, 36, 0.28);
+  object-fit: contain;
+  flex-shrink: 0;
+  background: #000;
+  box-shadow: 0 4px 14px rgba(0, 140, 255, 0.22);
 }
 .brand small { color: var(--text-faint); font-weight: 500; }
 
