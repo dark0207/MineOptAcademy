@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { LEVEL_LABEL, type Level } from "@/lib/constants";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, formatViews } from "@/lib/format";
 import { getTutorialBySlug } from "@/lib/queries";
 import { Icon } from "@/components/Icon";
 import { Markdown } from "@/components/Markdown";
@@ -32,8 +32,12 @@ export default async function WatchPage({ params }: Props) {
   const previous = index > 0 ? playlist[index - 1] : null;
   const next = index >= 0 && index < playlist.length - 1 ? playlist[index + 1] : null;
 
-  // counted once per page view; failures must never block the page
-  void db.tutorial.update({ where: { id: tutorial.id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined);
+  // learners and anonymous visitors only — admin preview/editing must not inflate the count
+  const countThisView = !isAdmin;
+  if (countThisView) {
+    void db.tutorial.update({ where: { id: tutorial.id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined);
+  }
+  const displayedViews = tutorial.viewCount + (countThisView ? 1 : 0);
 
   const style = { "--accent-color": tutorial.module.accent } as CSSProperties;
 
@@ -60,6 +64,9 @@ export default async function WatchPage({ params }: Props) {
                 <Icon name="clock" size={13} /> {formatDuration(tutorial.durationMinutes)}
               </span>
             )}
+            <span className="badge" title={`${displayedViews} views`}>
+              <Icon name="eye" size={13} /> {formatViews(displayedViews)} views
+            </span>
           </div>
 
           {isAdmin && (

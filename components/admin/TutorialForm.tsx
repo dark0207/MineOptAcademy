@@ -81,7 +81,13 @@ export function TutorialForm({
             <div className="grid-2">
               <div className={`field${err("moduleId") ? " invalid" : ""}`}>
                 <label htmlFor="moduleId">Module</label>
-                <select id="moduleId" name="moduleId" defaultValue={v("moduleId", initial.moduleId)}>
+                {/* key remounts after save: React 19 form reset otherwise snaps <select> to the first option */}
+                <select
+                  id="moduleId"
+                  name="moduleId"
+                  key={`moduleId-${state.savedAt ?? "i"}-${v("moduleId", initial.moduleId)}`}
+                  defaultValue={v("moduleId", initial.moduleId)}
+                >
                   {modules.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
@@ -92,7 +98,12 @@ export function TutorialForm({
               </div>
               <div className="field">
                 <label htmlFor="level">Level</label>
-                <select id="level" name="level" defaultValue={v("level", initial.level)}>
+                <select
+                  id="level"
+                  name="level"
+                  key={`level-${state.savedAt ?? "i"}-${v("level", initial.level)}`}
+                  defaultValue={v("level", initial.level)}
+                >
                   {LEVELS.map((l) => (
                     <option key={l} value={l}>
                       {LEVEL_LABEL[l]}

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { LEVEL_LABEL, type Level } from "@/lib/constants";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, formatViews } from "@/lib/format";
 import { Icon } from "./Icon";
 
 export type CardTutorial = {
@@ -11,6 +11,7 @@ export type CardTutorial = {
   summary: string;
   durationMinutes: number;
   level: string;
+  viewCount: number;
   videoSource: string;
   videoFile: string | null;
   videoUrl: string | null;
@@ -49,7 +50,12 @@ export function TutorialCard({ tutorial, completed = false }: { tutorial: CardTu
         <h3>{tutorial.title}</h3>
         <p>{tutorial.summary}</p>
         <div className="t-foot">
-          <span>{LEVEL_LABEL[tutorial.level as Level] ?? tutorial.level}</span>
+          <span className="t-meta">
+            <span>{LEVEL_LABEL[tutorial.level as Level] ?? tutorial.level}</span>
+            <span className="t-views" title={`${tutorial.viewCount} views`}>
+              <Icon name="eye" size={13} /> {formatViews(tutorial.viewCount)}
+            </span>
+          </span>
           <Icon name="arrow-right" size={16} />
         </div>
       </div>
